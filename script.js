@@ -17,7 +17,7 @@ async function fetchPokemon() {
     let url = `${apiBaseUrl}?offset=${offset}&limit=${limit}`;
 
     if (selectedType) {
-        await filterByType();
+        await filterAndSearch();
         return;
     }
 
@@ -172,18 +172,29 @@ async function performSearch(query) {
 
 async function filterByType() {
     selectedType = typeSelect.value;
-    const offset = (currentPage - 1) * limit;
+    currentPage = 1;
+    fetchPokemon();
+}
 
-    if (!selectedType) {
-        fetchPokemon();
-        return;
-    }
+
+async function filterAndSearch() {
+    selectedType = typeSelect.value;
+    const offset = (currentPage - 1) * limit;
 
     const response = await fetch(`https://pokeapi.co/api/v2/type/${selectedType}`);
     const data = await response.json();
-    totalPokemons = data.pokemon.length;
 
-    const filteredPokemonList = data.pokemon.slice(offset, offset + limit).map(p => p.pokemon);
-    displayPokemonList(filteredPokemonList);
+    let filteredPokemonList = data.pokemon.map(p => p.pokemon);
+
+    if (isSearchActive && searchQuery) {
+        filteredPokemonList = filteredPokemonList.filter(pokemon =>
+            pokemon.name.toLowerCase().includes(searchQuery)
+        );
+    }
+
+    totalPokemons = filteredPokemonList.length;
+
+    const paginatedResults = filteredPokemonList.slice(offset, offset + limit);
+    displayPokemonList(paginatedResults);
     updatePagination();
 }
