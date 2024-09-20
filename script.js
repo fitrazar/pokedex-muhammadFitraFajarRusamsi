@@ -3,6 +3,9 @@ let currentPage = 1;
 let limit = 20;
 let totalPokemons = 0;
 let selectedType = '';
+let searchQuery = '';
+let isSearchActive = false;
+let debounceTimer;
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchPokemon();
@@ -15,6 +18,11 @@ async function fetchPokemon() {
 
     if (selectedType) {
         await filterByType();
+        return;
+    }
+
+    if (isSearchActive && searchQuery) {
+        await performSearch(searchQuery);
         return;
     }
 
@@ -128,20 +136,38 @@ function nextPageFnc() {
 }
 
 function searchPokemon() {
-    const searchQuery = searchInput.value.toLowerCase();
+    clearTimeout(debounceTimer);
 
-    if (searchQuery === '') {
-        limit = 20;
+    debounceTimer = setTimeout(() => {
+        searchQuery = searchInput.value.trim().toLowerCase();
+        if (!searchQuery) {
+            isSearchActive = false;
+            currentPage = 1;
+            fetchPokemon();
+            return;
+        }
+
+        isSearchActive = true;
+        currentPage = 1;
         fetchPokemon();
-        return;
-    }
+    }, 300);
+}
 
-    fetch(`${apiBaseUrl}?limit=1118`)
-        .then(response => response.json())
-        .then(data => {
-            const filteredPokemonList = data.results.filter(pokemon => pokemon.name.toLowerCase().includes(searchQuery));
-            displayPokemonList(filteredPokemonList);
-        });
+async function performSearch(query) {
+    const offset = (currentPage - 1) * limit;
+
+    const response = await fetch(`${apiBaseUrl}?limit=1118`);
+    const data = await response.json();
+
+    const filteredPokemonList = data.results.filter(pokemon =>
+        pokemon.name.toLowerCase().includes(query)
+    );
+
+    totalPokemons = filteredPokemonList.length;
+
+    const paginatedResults = filteredPokemonList.slice(offset, offset + limit);
+    displayPokemonList(paginatedResults);
+    updatePagination();
 }
 
 async function filterByType() {
@@ -156,8 +182,8 @@ async function filterByType() {
     const response = await fetch(`https://pokeapi.co/api/v2/type/${selectedType}`);
     const data = await response.json();
     totalPokemons = data.pokemon.length;
-    const filteredPokemonList = data.pokemon.slice(offset, offset + limit).map(p => p.pokemon);
 
+    const filteredPokemonList = data.pokemon.slice(offset, offset + limit).map(p => p.pokemon);
     displayPokemonList(filteredPokemonList);
     updatePagination();
 }
